@@ -1,6 +1,9 @@
 # TP1 - Wally Street (Seminario PHP - UNLP)
 
 ### Integrantes:
+Matias Lissalde
+Valentín Lafourcade
+Paul Falcon
 
 ### Librerías Externas Utilizadas
 * **Slim Framework 4**: Núcleo del Backend para la gestión de rutas de la API.
