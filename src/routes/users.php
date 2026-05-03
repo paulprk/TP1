@@ -88,34 +88,50 @@ $app->get('/users/{user_id}', function (Request $request, Response $response, ar
         $db = getDB();      //abrir database
         $idBuscado = $args['user_id'];      //id buscado
 
-        $sqlSelect = "SELECT name, email, balance FROM users WHERE id = :id"; //seleccionar de la base name, email, password y balance del id buscado
-        $stmtSelect = $db->prepare($sqlSelect);     //preparar la consulta
-        $stmtSelect->execute([':id' => $idBuscado]);    //ejecutar la consulta inyectando el id buscado de forma segura
-        $idCargado = $stmtSelect->fetch(PDO::FETCH_ASSOC);  //cargar el resultado en un array asociativo
+        // 1. Buscar los datos básicos del usuario
+        $sqlSelect = "SELECT name, email, balance FROM users WHERE id = :id"; 
+        $stmtSelect = $db->prepare($sqlSelect);     
+        $stmtSelect->execute([':id' => $idBuscado]);    
+        $userCargado = $stmtSelect->fetch(PDO::FETCH_ASSOC);  
         
-        if($idCargado) {
+        if($userCargado) {
+
+            $sqlPortfolio = "SELECT SUM(p.quantity * a.current_price) as valor_total_activos 
+                             FROM portfolio p 
+                             JOIN assets a ON p.asset_id = a.id 
+                             WHERE p.user_id = :id";
+            $stmtPortfolio = $db->prepare($sqlPortfolio);
+            $stmtPortfolio->execute([':id' => $idBuscado]);
+            $portfolioData = $stmtPortfolio->fetch(PDO::FETCH_ASSOC);
+
+            $valorActivos = $portfolioData['valor_total_activos'] ? (float) $portfolioData['valor_total_activos'] : 0;
+            $balanceEfectivo = (float) $userCargado['balance'];
+
             $response->getBody()->write(json_encode([
                 "Ver Perfil" => [
-                    "name" => $idCargado['name'],
-                    "email" => $idCargado['email'],
+                    "name" => $userCargado['name'],
+                    "email" => $userCargado['email'],
                 ],
                 "Saldos" => [
-                    "balance" => $idCargado['balance'],
-                    //+ 0 sera reemplazado por valor del portfolio, cuando se implemente PORTAFOLIO e Historial
-                    //que sera el GET /portfolio
-                    "Valor Portfolio" => $idCargado['balance'] + 0 
+                    "balance_efectivo" => (float) number_format($balanceEfectivo, 2, '.', ''),
+                    "valor_activos" => (float) number_format($valorActivos, 2, '.', ''),
+                    "Valor Total (Portfolio)" => (float) number_format($balanceEfectivo + $valorActivos, 2, '.', '') 
                 ]
             ]));
+            
             return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+            
         } else {
             $response->getBody()->write(json_encode(["Error" => "Usuario no encontrado"]));
             return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
         }
+        
     } catch (PDOException $e) {
         $response->getBody()->write(json_encode([
-            "Error" => "No se proceso la solicitud en la base de datos: "
+            "Error" => "No se proceso la solicitud en la base de datos",
+            "Detalle" => $e->getMessage()
         ]));
-        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json'); 
     }
 });
 
@@ -221,41 +237,45 @@ $app->put('/users/{user_id}', function (Request $request, Response $response, ar
 // RUTA: GET /users (Listar inversores para monitoreo. Solo nombre y valor total del portfolio.)
 $app->get('/users', function (Request $request, Response $response, array $args) {
     try {
-        //abrir base de datos
 
         $db = getDB();
 
-        //armar y ejecutar consulta SQL para obtener nombre y valor total del portfolio de todos los usuarios
+        $sql = "SELECT 
+                    u.name, 
+                    u.balance, 
+                    SUM(p.quantity * a.current_price) as valor_activos
+                FROM users u
+                LEFT JOIN portfolio p ON u.id = p.user_id
+                LEFT JOIN assets a ON p.asset_id = a.id
+                WHERE u.email != 'test@test.com'
+                GROUP BY u.id, u.name, u.balance";
 
-        $sql = "SELECT name, balance FROM users"; //+ valor del portfolio, cuando se implemente PORTAFOLIO e Historial
         $stmt = $db->prepare($sql);
         $stmt->execute();
 
-        //obetener todos los resultados(fetchAll) y responder con un JSON que contenga un array de usuarios con su nombre y valor total del portfolio
-
         $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-
-        //armar la respuesta con un array de usuarios, donde cada usuario es un objeto con su nombre y valor total del portfolio (balance + valor del portfolio)
-
         $response->getBody()->write(json_encode([
-            "Usuarios" => array_map(function($usuarios) {
+            "Usuarios" => array_map(function($user) {
+                
+                $balanceEfectivo = (float) $user['balance'];
+                // Si el usuario no tiene activos, el SUM() devuelve NULL. Lo forzamos a 0.
+                $valorActivos = $user['valor_activos'] ? (float) $user['valor_activos'] : 0;
+                
                 return [
-                    "name" => $usuarios['name'],
-
-                    //+ 0 sera reemplazado por valor del portfolio, cuando se implemente PORTAFOLIO e Historial
-                    //que sera el GET /portfolio
-                    "Valor Portfolio" => $usuarios['balance'] + 0 
+                    "name" => $user['name'],
+                    // El "Valor Portfolio" final es la plata en mano + lo invertido
+                    "Valor Portfolio" => round($balanceEfectivo + $valorActivos, 2) 
                 ];
             }, $usuarios)
         ]));
 
         return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
 
-
     } catch (PDOException $e) {
         $response->getBody()->write(json_encode([
-            "Error" => "No se pudo obtener la lista de usuarios para monitoreo"
+            "Error" => "No se pudo obtener la lista de usuarios para monitoreo",
+            "Detalle" => $e->getMessage()
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
