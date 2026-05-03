@@ -62,11 +62,17 @@ $authMiddleware = function ($request, $handler) {
     }
 };
 
+$app->get('/test', function ($req, $res) {
+    $res->getBody()->write("OK");
+    return $res;
+});
+
 
 // Registrar rutas
 require_once __DIR__ . '/../src/routes/auth.php';
 require_once __DIR__ . '/../src/routes/users.php';
 require_once __DIR__ . '/../src/routes/assets.php';
 require_once __DIR__ . '/../src/routes/portfolio.php';
+require_once __DIR__ . '/../src/routes/trade.php';
  
 $app->run();
