@@ -45,7 +45,7 @@ $app->post('/users', function (Request $request, Response $response) {
 
         // 5. Preparar la orden SQL
         $sql = "INSERT INTO users (name, email, password, balance) 
-                VALUES (:name, :email, :password, DEFAULT(balance) + 1000.00)";
+                VALUES (:name, :email, :password, 1.000)"; 
         $stmt = $db->prepare($sql);
 
         // 6. Ejecutar inyectando los datos de forma segura
@@ -133,7 +133,7 @@ $app->get('/users/{user_id}', function (Request $request, Response $response, ar
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json'); 
     }
-});
+})->add($authMiddleware)->add($userOrAdminMiddleware('user_id'));
 
 // RUTA: PUT /users/{user_id} (Actualizar datos de un usuario específico)
 // -----------------------------------------------------------
@@ -232,7 +232,7 @@ $app->put('/users/{user_id}', function (Request $request, Response $response, ar
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
-})->add($authMiddleware); //proteger esta ruta para que solo usuarios autenticados puedan actualizar su perfil
+})->add($authMiddleware)->add($userOrAdminMiddleware('user_id'));
 
 // RUTA: GET /users (Listar inversores para monitoreo. Solo nombre y valor total del portfolio.)
 $app->get('/users', function (Request $request, Response $response, array $args) {
@@ -279,5 +279,6 @@ $app->get('/users', function (Request $request, Response $response, array $args)
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
-});
+}) -> add($authMiddleware)
+-> add($adminMiddleware); 
 

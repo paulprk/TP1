@@ -3,13 +3,10 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-require_once __DIR__ . '/../Database/db.php';
-
-
 $app->post('/trade/buy', function (Request $request, Response $response) {
 
     $data = $request->getParsedBody();
-    $user = $request->getAttribute('user'); // viene del middleware
+    $userId = $request->getAttribute('user_id'); // viene del middleware
 
   
     if (empty($data['asset_id']) || empty($data['quantity'])) {
@@ -45,7 +42,12 @@ $app->post('/trade/buy', function (Request $request, Response $response) {
         $cantidad = (float)$data['quantity'];
         $total = $precio * $cantidad;
 
-        if ($user['balance'] < $total) {
+        // Obtener balance del usuario
+        $stmtUser = $db->prepare("SELECT balance FROM users WHERE id = ?");
+        $stmtUser->execute([$userId]);
+        $userBalance = $stmtUser->fetch();
+        
+        if ($userBalance['balance'] < $total) {
             $response->getBody()->write(json_encode([
                 "error" => "Saldo insuficiente"
             ]));
@@ -54,11 +56,11 @@ $app->post('/trade/buy', function (Request $request, Response $response) {
 
         //  Restar saldo
         $stmt = $db->prepare("UPDATE users SET balance = balance - ? WHERE id = ?");
-        $stmt->execute([$total, $user['id']]);
+        $stmt->execute([$total, $userId]);
 
         //  Portfolio
         $stmt = $db->prepare("SELECT * FROM portfolio WHERE user_id = ? AND asset_id = ?");
-        $stmt->execute([$user['id'], $data['asset_id']]);
+        $stmt->execute([$userId, $data['asset_id']]);
         $portfolio = $stmt->fetch();
 
         if ($portfolio) {
@@ -66,15 +68,15 @@ $app->post('/trade/buy', function (Request $request, Response $response) {
             $stmt->execute([$cantidad, $portfolio['id']]);
         } else {
             $stmt = $db->prepare("INSERT INTO portfolio (user_id, asset_id, quantity) VALUES (?, ?, ?)");
-            $stmt->execute([$user['id'], $data['asset_id'], $cantidad]);
+            $stmt->execute([$userId, $data['asset_id'], $cantidad]);
         }
 
         // Registrar transacción
         $stmt = $db->prepare("
-            INSERT INTO transactions (user_id, asset_id, transaction_type, quantity, price_per_unit, transaction_date)
-            VALUES (?, ?, 'buy', ?, ?, NOW())
+            INSERT INTO transactions (user_id, asset_id, transaction_type, quantity, price_per_unit, total_amount, transaction_date)
+            VALUES (?, ?, 'buy', ?, ?, ?, NOW())
         ");
-        $stmt->execute([$user['id'], $data['asset_id'], $cantidad, $precio]);
+        $stmt->execute([$userId, $data['asset_id'], $cantidad, $precio, $total]);
 
         $response->getBody()->write(json_encode([
             "message" => "Compra realizada con éxito"
@@ -98,7 +100,7 @@ $app->post('/trade/buy', function (Request $request, Response $response) {
 $app->post('/trade/sell', function (Request $request, Response $response) {
 
     $data = $request->getParsedBody();
-    $user = $request->getAttribute('user'); // 🔥 del middleware
+    $userId = $request->getAttribute('user_id'); // 🔥 del middleware
 
     if (empty($data['asset_id']) || empty($data['quantity'])) {
         $response->getBody()->write(json_encode([
@@ -119,7 +121,7 @@ $app->post('/trade/sell', function (Request $request, Response $response) {
 
         // verificar portfolio
         $stmt = $db->prepare("SELECT * FROM portfolio WHERE user_id = ? AND asset_id = ?");
-        $stmt->execute([$user['id'], $data['asset_id']]);
+        $stmt->execute([$userId, $data['asset_id']]);
         $portfolio = $stmt->fetch();
 
         if (!$portfolio || $portfolio['quantity'] < $data['quantity']) {
@@ -140,7 +142,7 @@ $app->post('/trade/sell', function (Request $request, Response $response) {
 
         // sumar saldo
         $stmt = $db->prepare("UPDATE users SET balance = balance + ? WHERE id = ?");
-        $stmt->execute([$total, $user['id']]);
+        $stmt->execute([$total, $userId]);
 
         // restar portfolio
         $stmt = $db->prepare("UPDATE portfolio SET quantity = quantity - ? WHERE id = ?");
@@ -148,10 +150,10 @@ $app->post('/trade/sell', function (Request $request, Response $response) {
 
         // registrar transacción
         $stmt = $db->prepare("
-            INSERT INTO transactions (user_id, asset_id, transaction_type, quantity, price_per_unit, transaction_date)
-            VALUES (?, ?, 'sell', ?, ?, NOW())
+            INSERT INTO transactions (user_id, asset_id, transaction_type, quantity, price_per_unit, total_amount, transaction_date)
+            VALUES (?, ?, 'sell', ?, ?, ?, NOW())
         ");
-        $stmt->execute([$user['id'], $data['asset_id'], $cantidad, $precio]);
+        $stmt->execute([$userId, $data['asset_id'], $cantidad, $precio, $total]);
 
         $response->getBody()->write(json_encode([
             "message" => "Venta realizada con éxito"

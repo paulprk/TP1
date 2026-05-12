@@ -102,3 +102,57 @@ $app->delete('/portfolio/{asset_id}', function (Request $request, Response $resp
     }
 
 })->add($authMiddleware);
+
+
+$app->get('/transactions', function (Request $request, Response $response) {
+
+    try {
+        $db = getDB();
+        $user_id = $request->getAttribute('user_id');
+        $params = $request->getQueryParams();
+
+        $type = $params['type'] ?? null;        // buy o sell
+        $asset_id = $params['asset_id'] ?? null; // id del asset
+
+        if ($type && !in_array($type, ['buy', 'sell'])) {
+            $response->getBody()->write(json_encode(["error" => "El parámetro 'type' debe ser 'buy' o 'sell'"]));
+            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
+        // 4. Armar la query base
+        $sql = "SELECT * FROM transactions WHERE user_id = :user_id";
+        if ($type) {
+            $sql .= " AND transaction_type = :type";
+        }
+
+        if ($asset_id) {
+            $sql .= " AND asset_id = :asset_id";
+        }
+
+        $sql .= " ORDER BY transaction_date DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(':user_id', $user_id);
+
+        if ($type) {
+            $stmt->bindParam(':type', $type);
+        }
+
+        if ($asset_id) {
+            $stmt->bindParam(':asset_id', $asset_id);
+        }
+
+        $stmt->execute();
+        $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $response->getBody()->write(json_encode($transactions));
+        return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
+        
+    } catch (Exception $e) {
+        $response->getBody()->write(json_encode([
+            "error" => "Error al obtener las transacciones",
+            "detalle" => $e->getMessage()
+        ]));
+
+        return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+    }
+    
+})->add($authMiddleware);

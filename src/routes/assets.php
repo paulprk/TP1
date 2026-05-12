@@ -118,7 +118,8 @@ $app->put('/assets', function (Request $request, Response $response) {
         return $response->withStatus(500)
                         ->withHeader('Content-Type', 'application/json');
     }
-});
+}) -> add($authMiddleware)  
+-> add($adminMiddleware);
 
 // GET /assets/{id}/history/{quantity}
 $app->get('/assets/{id}/history/{quantity}', function (Request $request, Response $response, $args) {

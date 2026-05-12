@@ -102,72 +102,34 @@ $app->post('/login', function (Request $request, Response $response) {
 
 $app->post('/logout', function (Request $request, Response $response) {
 
-    // 1. Obtener los datos enviados por el usuario (JSON → array)
-    $data = $request->getParsedBody();
-
-    // 2. Validar que venga el token (obligatorio)
-    if (empty($data['token'])) {
-
-        // 2.1 Responder error si no envía token
-        $response->getBody()->write(json_encode([
-            "error" => "Token es obligatorio"
-        ]));
-
-        // 2.2 Código 400 = Bad Request
-        return $response->withStatus(400)
-                        ->withHeader('Content-Type', 'application/json');
-    }
+    // El middleware de autenticación ya validó el token desde el header Authorization
+    $userId = $request->getAttribute('user_id');
 
     try {
-        // 3. Obtener conexión a la base de datos
+        // Obtener conexión a la base de datos
         $db = getDB();
 
-        // 4. Buscar usuario por token
-        $sql = "SELECT * FROM users WHERE token = :token";
-        $stmt = $db->prepare($sql);
-
-        // 5. Ejecutar consulta con el token recibido
-        $stmt->execute([
-            ':token' => $data['token']
-        ]);
-
-        // 6. Obtener el usuario encontrado
-        $user = $stmt->fetch();
-
-        // 7. Verificar si el token NO existe
-        if (!$user) {
-
-            // 7.1 Responder error
-            $response->getBody()->write(json_encode([
-                "error" => "Token inválido"
-            ]));
-
-            // 7.2 Código 401 = Unauthorized
-            return $response->withStatus(401)
-                            ->withHeader('Content-Type', 'application/json');
-        }
-
-        // 8. Anular el token (cerrar sesión)
+        // Anular el token (cerrar sesión)
         $sqlUpdate = "UPDATE users SET token = NULL, token_expired_at = NULL WHERE id = :id";
         $stmt = $db->prepare($sqlUpdate);
 
-        // 9. Ejecutar actualización
+        // Ejecutar actualización
         $stmt->execute([
-            ':id' => $user['id']
+            ':id' => $userId
         ]);
 
-        // 10. Responder éxito
+        // Responder éxito
         $response->getBody()->write(json_encode([
             "mensaje" => "Logout exitoso"
         ]));
 
-        // 11. Código 200 OK
+        // Código 200 OK
         return $response->withStatus(200)
                         ->withHeader('Content-Type', 'application/json');
 
     } catch (PDOException $e) {
 
-        // 12. Error del servidor
+        // Error del servidor
         $response->getBody()->write(json_encode([
             "error" => "Error en el servidor"
         ]));
@@ -175,4 +137,5 @@ $app->post('/logout', function (Request $request, Response $response) {
         return $response->withStatus(500)
                         ->withHeader('Content-Type', 'application/json');
     }
-});
+
+})->add($authMiddleware);
