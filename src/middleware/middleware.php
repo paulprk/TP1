@@ -73,8 +73,13 @@ $userOrAdminMiddleware = function ($userIdParam = 'user_id') {
         $db = getDB();
         $currentUserId = (int)$request->getAttribute('user_id');
 
-        $routeArgs = $request->getAttribute('routeInfo')[2] ?? [];
-        $resourceUserId = isset($routeArgs[$userIdParam]) ? (int)$routeArgs[$userIdParam] : null;
+        // Obtener argumentos de ruta de Slim4
+        $route = $request->getAttribute('__route__');
+        $resourceUserId = null;
+        if ($route) {
+            $routeArgs = $route->getArguments();
+            $resourceUserId = isset($routeArgs[$userIdParam]) ? (int)$routeArgs[$userIdParam] : null;
+        }
 
         if (!$resourceUserId) {
             $data = $request->getParsedBody();

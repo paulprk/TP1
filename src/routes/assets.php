@@ -48,8 +48,8 @@ $app->get('/assets', function (Request $request, Response $response) {
         }
 
         if (isset($params['type'])) {
-            $sql .= " AND name = ?";
-            $values[] = $params['type'];
+            $sql .= " AND name LIKE ?";
+            $values[] = "%{$params['type']}%";
         }
 
         if (isset($params['min_price'])) {

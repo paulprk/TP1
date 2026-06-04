@@ -84,9 +84,10 @@ $app->post('/login', function (Request $request, Response $response) {
             "expira" => $expira
         ]));
 
-        // 13. Código 200 OK
+        // 13. Código 200 OK + token en Authorization header
         return $response->withStatus(200)
-                        ->withHeader('Content-Type', 'application/json');
+                        ->withHeader('Content-Type', 'application/json')
+                        ->withHeader('Authorization', 'Bearer ' . $token);
 
     } catch (PDOException $e) {
 

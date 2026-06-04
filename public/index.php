@@ -11,7 +11,6 @@ require_once __DIR__ . '/../src/middleware/middleware.php';
 $app = AppFactory::create();
 $app->addErrorMiddleware(true, true, true);
 
-$app->setBasePath('/mi-proyecto/public');
 $app->addBodyParsingMiddleware();
 
 
