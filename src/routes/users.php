@@ -279,6 +279,6 @@ $app->get('/users', function (Request $request, Response $response, array $args)
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
-}) -> add($authMiddleware)
--> add($adminMiddleware); 
+}) -> add($adminMiddleware)
+-> add($authMiddleware);
 
