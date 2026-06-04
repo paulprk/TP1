@@ -81,8 +81,6 @@ $app->get('/assets', function (Request $request, Response $response) {
                         ->withHeader('Content-Type', 'application/json');
     }
 });
-
-// PUT /assets 
 $app->put('/assets', function (Request $request, Response $response) {
 
     try {
@@ -116,10 +114,11 @@ $app->put('/assets', function (Request $request, Response $response) {
         ]));
 
         return $response->withStatus(500)
-                        ->withHeader('Content-Type', 'application/json');
+                        ->withHeader('ContentType', 'application/json');
+
     }
-}) -> add($authMiddleware)  
--> add($adminMiddleware);
+}) -> add($adminMiddleware)
+-> add($authMiddleware);
 
 // GET /assets/{id}/history/{quantity}
 $app->get('/assets/{id}/history/{quantity}', function (Request $request, Response $response, $args) {
