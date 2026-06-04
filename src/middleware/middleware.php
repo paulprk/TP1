@@ -73,12 +73,18 @@ $userOrAdminMiddleware = function ($userIdParam = 'user_id') {
         $db = getDB();
         $currentUserId = (int)$request->getAttribute('user_id');
 
-        // Obtener argumentos de ruta de Slim4
-        $route = $request->getAttribute('__route__');
+        // Obtener argumentos de ruta de Slim4 usando RouteContext
         $resourceUserId = null;
-        if ($route) {
-            $routeArgs = $route->getArguments();
-            $resourceUserId = isset($routeArgs[$userIdParam]) ? (int)$routeArgs[$userIdParam] : null;
+        try {
+            $routeContext = \Slim\Routing\RouteContext::fromRequest($request);
+            $route = $routeContext->getRoute();
+            if ($route) {
+                $arg = $route->getArgument($userIdParam);
+                $resourceUserId = $arg !== null ? (int)$arg : null;
+            }
+        } catch (Throwable $e) {
+            // ignore
+            $resourceUserId = null;
         }
 
         if (!$resourceUserId) {

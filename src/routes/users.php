@@ -133,7 +133,7 @@ $app->get('/users/{user_id}', function (Request $request, Response $response, ar
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json'); 
     }
-})->add($authMiddleware)->add($userOrAdminMiddleware('user_id'));
+})->add($userOrAdminMiddleware('user_id'))->add($authMiddleware);
 
 // RUTA: PUT /users/{user_id} (Actualizar datos de un usuario específico)
 // -----------------------------------------------------------
@@ -232,7 +232,7 @@ $app->put('/users/{user_id}', function (Request $request, Response $response, ar
         ]));
         return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
     }
-})->add($authMiddleware)->add($userOrAdminMiddleware('user_id'));
+})->add($userOrAdminMiddleware('user_id'))->add($authMiddleware);
 
 // RUTA: GET /users (Listar inversores para monitoreo. Solo nombre y valor total del portfolio.)
 $app->get('/users', function (Request $request, Response $response, array $args) {
