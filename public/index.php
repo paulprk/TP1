@@ -1,5 +1,7 @@
 <?php
 use Slim\Factory\AppFactory;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
 
 // Importar el autoload de Composer
 require __DIR__ . '/../vendor/autoload.php';
@@ -11,7 +13,20 @@ require_once __DIR__ . '/../src/middleware/middleware.php';
 $app = AppFactory::create();
 $app->addErrorMiddleware(true, true, true);
 
+$app->setBasePath('/mi-proyecto/public');
+
 $app->addBodyParsingMiddleware();
+
+$app->get('/', function (Request $request, Response $response) {
+	$response->getBody()->write(json_encode([
+		'success' => true,
+		'message' => 'Ruta raiz encontrada',
+		'method' => $request->getMethod(),
+		'path' => (string) $request->getUri()->getPath()
+	]));
+
+	return $response->withHeader('Content-Type', 'application/json');
+});
 
 
 // Registrar rutas

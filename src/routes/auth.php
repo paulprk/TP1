@@ -80,7 +80,6 @@ $app->post('/login', function (Request $request, Response $response) {
         // 12. Responder con éxito
         $response->getBody()->write(json_encode([
             "mensaje" => "Login exitoso",
-            "token" => $token,
             "expira" => $expira
         ]));
 
