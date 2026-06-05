@@ -32,10 +32,10 @@ $authMiddleware = function ($request, $handler) {
             return $response->withStatus(401)->withHeader('Content-Type', 'application/json');
         }
 
-        $nuevaExpiracion = date('Y-m-d H:i:s', strtotime('+5 minutes'));
-        $sqlUpdate = "UPDATE users SET token_expired_at = :expira WHERE id = :id";
+        // Extender expiración en la base de datos usando la hora del servidor DB
+        $sqlUpdate = "UPDATE users SET token_expired_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE id = :id";
         $stmtUpdate = $db->prepare($sqlUpdate);
-        $stmtUpdate->execute([':expira' => $nuevaExpiracion, ':id' => $user['id']]);
+        $stmtUpdate->execute([':id' => $user['id']]);
 
         $request = $request->withAttribute('user_id', $user['id']);
 
@@ -73,21 +73,35 @@ $userOrAdminMiddleware = function ($userIdParam = 'user_id') {
         $db = getDB();
         $currentUserId = (int)$request->getAttribute('user_id');
 
-        // Obtener argumentos de ruta de Slim4 usando RouteContext
+        // Obtener argumentos de ruta de Slim4 usando RouteContext o el atributo 'route' como fallback
         $resourceUserId = null;
         try {
+            // Primero intentar RouteContext (requiere RoutingMiddleware)
             $routeContext = \Slim\Routing\RouteContext::fromRequest($request);
-            $route = $routeContext->getRoute();
+            $route = $routeContext ? $routeContext->getRoute() : null;
             if ($route) {
                 $arg = $route->getArgument($userIdParam);
                 $resourceUserId = $arg !== null ? (int)$arg : null;
             }
         } catch (Throwable $e) {
-            // ignore
             $resourceUserId = null;
         }
 
-        if (!$resourceUserId) {
+        // Fallback: algunos entornos exponen la ruta en el atributo 'route'
+        if ($resourceUserId === null) {
+            $routeAttr = $request->getAttribute('route');
+            if ($routeAttr) {
+                try {
+                    $arg = $routeAttr->getArgument($userIdParam);
+                    $resourceUserId = $arg !== null ? (int)$arg : null;
+                } catch (Throwable $e) {
+                    // ignore
+                }
+            }
+        }
+
+        // Último fallback: buscar en el body (por si el cliente manda user_id en JSON)
+        if ($resourceUserId === null) {
             $data = $request->getParsedBody();
             $resourceUserId = isset($data[$userIdParam]) ? (int)$data[$userIdParam] : null;
         }

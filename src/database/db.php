@@ -12,5 +12,11 @@ function getDB() {
 
     $dbConnection = new PDO("mysql:host=$host;port=$port;dbname=$db;charset=utf8", $user, $pass);
     $dbConnection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Alinear la zona horaria de la sesión MySQL con UTC
+    try {
+        $dbConnection->exec("SET time_zone = '+00:00'");
+    } catch (PDOException $e) {
+        // no fatal — si el usuario de BD no tiene permisos para cambiar time_zone, ignorar
+    }
     return $dbConnection;
 }

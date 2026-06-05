@@ -11,11 +11,19 @@ require_once __DIR__ . '/../src/database/db.php';
 require_once __DIR__ . '/../src/middleware/middleware.php';
 
 $app = AppFactory::create();
+
+// Añadir RoutingMiddleware para que RouteContext y los argumentos de ruta
+// estén disponibles dentro de middlewares de ruta.
+$app->addRoutingMiddleware();
+
 $app->addErrorMiddleware(true, true, true);
 
 $app->setBasePath('/mi-proyecto/public');
 
 $app->addBodyParsingMiddleware();
+
+// Alineamos la zona horaria de PHP con la base de datos (usar UTC es recomendado)
+date_default_timezone_set('UTC');
 
 $app->get('/', function (Request $request, Response $response) {
 	$response->getBody()->write(json_encode([

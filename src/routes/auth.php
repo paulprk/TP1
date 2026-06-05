@@ -64,26 +64,27 @@ $app->post('/login', function (Request $request, Response $response) {
         // 9. Generar token aleatorio
         $token = bin2hex(random_bytes(16)); // string seguro
 
-        // 10. Generar fecha de expiración (+5 minutos)
-        $expira = date('Y-m-d H:i:s', strtotime('+5 minutes'));
-
-        // 11. Guardar token y expiración en la base de datos
-        $sqlUpdate = "UPDATE users SET token = :token, token_expired_at = :expira WHERE id = :id";
+        // 10-11. Guardar token y expiración en la base de datos usando la hora del servidor DB
+        $sqlUpdate = "UPDATE users SET token = :token, token_expired_at = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE id = :id";
         $stmt = $db->prepare($sqlUpdate);
 
         $stmt->execute([
             ':token' => $token,
-            ':expira' => $expira,
             ':id' => $user['id']
         ]);
 
-        // 12. Responder con éxito
+        // 12. Leer la expiración que puso la BD para devolverla en la respuesta
+        $stmt2 = $db->prepare("SELECT token_expired_at FROM users WHERE id = :id");
+        $stmt2->execute([':id' => $user['id']]);
+        $row = $stmt2->fetch(PDO::FETCH_ASSOC);
+        $expiraDb = $row ? $row['token_expired_at'] : null;
+
+        // 13. Responder con éxito y token en header
         $response->getBody()->write(json_encode([
             "mensaje" => "Login exitoso",
-            "expira" => $expira
+            "expira" => $expiraDb
         ]));
 
-        // 13. Código 200 OK + token en Authorization header
         return $response->withStatus(200)
                         ->withHeader('Content-Type', 'application/json')
                         ->withHeader('Authorization', 'Bearer ' . $token);

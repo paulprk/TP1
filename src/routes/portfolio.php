@@ -34,16 +34,16 @@ $app->get('/portfolio', function (Request $request, Response $response) {
 
             $listaActivos[] = [
                 "activo" => $item['asset_name'],
-                "cantidad" => $cantidad,
-                "precio_actual" => $precioMercado,
-                "valor_total_tenencia" => round($valorActual, 2)
+                "cantidad" => number_format($cantidad, 2, '.', ''),
+                "precio_actual" => number_format($precioMercado, 2, '.', ''),
+                "valor_total_tenencia" => number_format($valorActual, 2, '.', '')
             ];
 
         }
 
         $response->getBody()->write(json_encode([
             "usuario_id" => $userId,
-            "valor_total_portfolio" => round($valorTotalPortfolio, 2),
+            "valor_total_portfolio" => number_format($valorTotalPortfolio, 2, '.', ''),
             "activos" => $listaActivos
         ]));
 
@@ -78,7 +78,15 @@ $app->delete('/portfolio/{asset_id}', function (Request $request, Response $resp
             return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
         }
 
-        if((float) $portfolioItem['quantity'] > 0) {
+        $qtyStr = $portfolioItem['quantity'];
+        $isZero = false;
+        if (function_exists('bccomp')) {
+            $isZero = (bccomp($qtyStr, '0', 8) === 0);
+        } else {
+            $isZero = (abs((float)$qtyStr) < 1e-8);
+        }
+
+        if (!$isZero) {
             $response->getBody()->write(json_encode(["error" => "No puedes quitar un activo de tu portfolio si aún tienes unidades. Debes venderlas primero."]));
             return $response->withStatus(409)->withHeader('Content-Type', 'application/json');
         }
@@ -142,6 +150,13 @@ $app->get('/transactions', function (Request $request, Response $response) {
 
         $stmt->execute();
         $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $transactions = array_map(function (array $transaction) {
+            $transaction['quantity'] = number_format((float) $transaction['quantity'], 2, '.', '');
+            $transaction['price_per_unit'] = number_format((float) $transaction['price_per_unit'], 2, '.', '');
+            $transaction['total_amount'] = number_format((float) $transaction['total_amount'], 2, '.', '');
+            return $transaction;
+        }, $transactions);
 
         $response->getBody()->write(json_encode($transactions));
         return $response->withStatus(200)->withHeader('Content-Type', 'application/json');

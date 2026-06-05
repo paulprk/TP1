@@ -4,6 +4,8 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
+
+
 // RUTA: POST /users (Registrar un nuevo usuario)
 // -----------------------------------------------------------
 $app->post('/users', function (Request $request, Response $response) {
@@ -45,7 +47,7 @@ $app->post('/users', function (Request $request, Response $response) {
 
         // 5. Preparar la orden SQL
         $sql = "INSERT INTO users (name, email, password, balance) 
-                VALUES (:name, :email, :password, 1.000)"; 
+            VALUES (:name, :email, :password, 1000.00)"; 
         $stmt = $db->prepare($sql);
 
         // 6. Ejecutar inyectando los datos de forma segura
@@ -78,6 +80,8 @@ $app->post('/users', function (Request $request, Response $response) {
         return $response->withStatus(409)->withHeader('Content-Type', 'application/json');
     }
 });
+
+
 
 
 // RUTA: GET /users/{user_id} (Ver perfil de un usuario específico)
@@ -113,9 +117,9 @@ $app->get('/users/{user_id}', function (Request $request, Response $response, ar
                     "email" => $userCargado['email'],
                 ],
                 "Saldos" => [
-                    "balance_efectivo" => (float) number_format($balanceEfectivo, 2, '.', ''),
-                    "valor_activos" => (float) number_format($valorActivos, 2, '.', ''),
-                    "Valor Total (Portfolio)" => (float) number_format($balanceEfectivo + $valorActivos, 2, '.', '') 
+                    "balance_efectivo" => number_format($balanceEfectivo, 2, '.', ''),
+                    "valor_activos" => number_format($valorActivos, 2, '.', ''),
+                    "Valor Total (Portfolio)" => number_format($balanceEfectivo + $valorActivos, 2, '.', '') 
                 ]
             ]));
             
@@ -265,7 +269,7 @@ $app->get('/users', function (Request $request, Response $response, array $args)
                 return [
                     "name" => $user['name'],
                     // El "Valor Portfolio" final es la plata en mano + lo invertido
-                    "Valor Portfolio" => round($balanceEfectivo + $valorActivos, 2) 
+                    "Valor Portfolio" => number_format($balanceEfectivo + $valorActivos, 2, '.', '') 
                 ];
             }, $usuarios)
         ]));

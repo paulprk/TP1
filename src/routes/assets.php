@@ -6,14 +6,28 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 // catedra
 function variarPrecioPorTiempo($precioActual, $timestampUltimaVez, $volatilidadPorSegundo = 0.05) {
-    $tiempoPasado = time() - $timestampUltimaVez;
+    // Implementación basada en el PDF: variación aditiva proporcional al tiempo
+    $tiempoPasado = time() - $timestampUltimaVez; // 1. segundos pasados
 
-    if ($tiempoPasado <= 0) return $precioActual;
+    if ($tiempoPasado <= 0) return $precioActual; // no change if no time passed
 
+    // 2. cambio aleatorio entre -1.0 y 1.0
     $direccion = mt_rand(-100, 100) / 100;
+
+    // 3. delta total = direccion * volatilidadPorSegundo * segundos
     $delta = $direccion * $volatilidadPorSegundo * $tiempoPasado;
 
-    return $precioActual + $delta;
+    // Evitar saltos extremos: cap al 50% del precio actual
+    $deltaCap = abs($precioActual) * 0.5;
+    if ($delta > $deltaCap) $delta = $deltaCap;
+    if ($delta < -$deltaCap) $delta = -$deltaCap;
+
+    $nuevo = $precioActual + $delta;
+
+    // Asegurar no negativo y piso realista
+    if ($nuevo < 0.01) $nuevo = 0.01;
+
+    return round($nuevo, 2);
 }
 
 
@@ -47,7 +61,12 @@ $app->get('/assets', function (Request $request, Response $response) {
             }
         }
 
-        if (isset($params['type'])) {
+        // Permitir búsqueda por fragmento de nombre. Aceptamos parámetro 'name' (preferido)
+        // y mantenemos 'type' como compatibilidad hacia atrás.
+        if (isset($params['name'])) {
+            $sql .= " AND name LIKE ?";
+            $values[] = "%{$params['name']}%";
+        } elseif (isset($params['type'])) {
             $sql .= " AND name LIKE ?";
             $values[] = "%{$params['type']}%";
         }
@@ -91,12 +110,9 @@ $app->put('/assets', function (Request $request, Response $response) {
 
         foreach ($assets as $asset) {
 
-            $nuevoPrecio = variarPrecioPorTiempo(
-                (float)$asset['current_price'],
-                strtotime($asset['last_update'])
-            );
+            $nuevoPrecio = variarPrecioPorTiempo((float)$asset['current_price'], strtotime($asset['last_update']));
 
-            $update = $db->prepare("UPDATE assets SET current_price = ? WHERE id = ?");
+            $update = $db->prepare("UPDATE assets SET current_price = ?, last_update = NOW() WHERE id = ?");
             $update->execute([$nuevoPrecio, $asset['id']]);
         }
 
@@ -114,7 +130,7 @@ $app->put('/assets', function (Request $request, Response $response) {
         ]));
 
         return $response->withStatus(500)
-                        ->withHeader('ContentType', 'application/json');
+                ->withHeader('Content-Type', 'application/json');
 
     }
 }) -> add($adminMiddleware)
@@ -158,7 +174,11 @@ $app->get('/assets/{id}/history/{quantity}', function (Request $request, Respons
         $stmt->execute();
 
         // Muestra del historial sin revelar información sensible (user_id)
-        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $history = array_map(function (array $transaction) {
+            $transaction['quantity'] = number_format((float) $transaction['quantity'], 2, '.', '');
+            $transaction['price_per_unit'] = number_format((float) $transaction['price_per_unit'], 2, '.', '');
+            return $transaction;
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 
         // Si no hay transacciones para ese activo, devolvemos un mensaje claro o array vacío
         $response->getBody()->write(json_encode($history));
